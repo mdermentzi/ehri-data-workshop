@@ -23,6 +23,14 @@ data = {
 # We create a bar chart with the names of the fruits on the x axis and their count on the y axis
 st.bar_chart(data, x='Fruit', y='Count')
 
+# Let's visualise our current location on a map
+coordinates = {
+    'lat': [51.521676],
+    'lon': [-0.127801]
+}
+
+st.map(coordinates)
+
 ##########################      COUNTRY DATA SECTION & GRAPHQL API    ##########################
 
 
@@ -83,22 +91,17 @@ st.bar_chart(countries, x='name', y='itemCount')
 
 # We create a dict to store the mapping data
 map_data = {
-    'lat': {},
-    'lon': {}
+    'lat': [],
+    'lon': []
 }
-
-# We define an indexing value that will be incrementing as the number of coordinates 
-# we'll be adding to map_data is getting incremented
-i = 0
 
 # Loop through every list containing the repos of a country and extract the lat/lon values in the format 
 # that st.map() expects
 for lst in countries['repos']:
     for d in lst:
         if d['latitude'] and d['longitude']:
-            map_data["lat"][str(i)] = d["latitude"]
-            map_data["lon"][str(i)] = d["longitude"]
-            i+=1
+            map_data["lat"].append(d["latitude"])
+            map_data["lon"].append(d["longitude"])
 
 # Create a Streamlit header
 st.header('Archival Institutions Map')
@@ -144,5 +147,9 @@ for d in dcs:
 
 # Visualise the count per date
 st.bar_chart(docUnits, x='date', y='count')
+
+
+
+
 
 
