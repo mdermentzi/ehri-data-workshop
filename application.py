@@ -1,16 +1,40 @@
 # Importing necessary libraries
 import streamlit as st
 import requests as r
-import pandas as pd
 
 # Define a title for our project
 st.title("EHRI Data Workshop")
 
+########################################      INTRO SECTION      ########################################
+
+# Let's try some basic streamlit commands
+
+# Let's add a header
+
+st.header('Intro to Streamlit')
+
+# Let's now observe the following Python dictionary.
+
+data = {
+    'Fruit': ['Apples', 'Oranges', 'Bananas'],
+    'Count': [5, 10, 15]
+}
+
+# We create a bar chart with the names of the fruits on the x axis and their count on the y axis
+st.bar_chart(data, x='Fruit', y='Count')
+
+##########################      COUNTRY DATA SECTION & GRAPHQL API    ##########################
+
+
 # Defining the EHRI GraphQL API endpoint
 GraphQLEndpoint = 'https://portal.ehri-project-stage.eu/api/graphql'
 
-# Defining an empty dictionary in which we'll later save our data
-countries = {}
+# Defining an empty dictionary in which we'll later store our data
+countries = {
+    'name': [],
+    'itemCount': [],
+    'repos': []
+}
 
 # Defining the GraphQL query to retrieve country information
 def holders_per_country():
@@ -32,43 +56,57 @@ def holders_per_country():
     """
     # Send the query to the GraphQL endpoint and retrieve the response
     res = r.post(GraphQLEndpoint, headers={"X-Stream": "true"}, json={'query': countries_query})
-    res_json = res.json()
     # Convert the response to JSON format
+    res_json = res.json()
     res_data = res_json['data']['countries']['items']
-    # Loop through the data to create a dictionary of countries and their itemCounts and repository 
+    # Loop through the results and store each country's details in the dictionary that we created earlier
     for i in res_data:
-        repos = []
-        for h in i['repositories']['items']:
-            # Check if the repository has longitude and latitude values
-            if h['longitude'] and h['latitude']:
-                repos.append(h)
-        # Create a dictionary entry for the country with its name as the key and itemCount and repo coordinates as values
-        countries[i['name']]= {'itemCount':i['itemCount'],'repositories':repos}
-        
+        countries['name'].append(i['name'])
+        countries['itemCount'].append(i['itemCount'])
+        countries['repos'].append(i['repositories']['items'])
+
 
 # Call the function to retrieve and process country data    
 holders_per_country()
 
 # Create a Streamlit header
-st.header("Repositories per country")
+st.header('Archival Institutions per Country')
 
-# Convert the country dictionary to a pandas dataframe to help us with the visualisation
-df = pd.DataFrame.from_dict(countries,orient="index", columns=['itemCount', 'repositories'])
+# Visualise the itemCount per country
+st.bar_chart(countries, x='name', y='itemCount')
 
-# Create a bar chart to display the number of repositories per country
-st.bar_chart(df,y='itemCount')
+########################################       MAP OF REPOS        ########################################
 
-# Create a Streamlit header for the map visualization
-st.header("Map of Repositories")
+# To create a map visualisation of the repositories, we need to convert the data into a format that
+# the Streamlit method st.map() can understand, ie. a dict with two keys (lat, lon)
+# the values of which will be the long/lat values of each point we want to draw on the map
 
-# Drop the itemCount column and explode the repositories column into multiple row
-geo_df = df.drop(['itemCount'], axis=1).explode('repositories')
+# We create a dict to store the mapping data
+map_data = {
+    'lat': {},
+    'lon': {}
+}
 
-# Convert the repository data from JSON format to a pandas dataframe
-geo_df = pd.json_normalize(geo_df.repositories).dropna()
+# We define an indexing value that will be incrementing as the number of coordinates 
+# we'll be adding to map_data is getting incremented
+i = 0
 
-# Create a map visualization of the repository locations
-st.map(geo_df)
+# Loop through every list containing the repos of a country and extract the lat/lon values in the format 
+# that st.map() expects
+for lst in countries['repos']:
+    for d in lst:
+        if d['latitude'] and d['longitude']:
+            map_data["lat"][str(i)] = d["latitude"]
+            map_data["lon"][str(i)] = d["longitude"]
+            i+=1
+
+# Create a Streamlit header
+st.header('Archival Institutions Map')
+
+# Let's visualise the repositories
+st.map(map_data)
+
+####################       ARCHIVAL DESCRIPTIONS AND THE EHRI REST API        ####################
 
 # Create a Streamlit header for the archival descriptions histogram
 st.header('Archival Descriptions Histogram')
@@ -90,9 +128,21 @@ result = r.get('https://portal.ehri-project-stage.eu/api/v1/search?', payload)
 # Extract the archival description query metadata (counts per date, etc.)
 dcs = result.json()['meta']['facets'][0]['facets']
 
-# Convert the archival description data to a pandas dataframe for visualisation purposes
-docUnit_df = pd.DataFrame(dcs)
+# Create a dictionary to store the results
+docUnits = {
+    'count': [],
+    'date': [],
+    'name': []
+}
 
-# Create a bar chart to display the number of repositories per country
-st.bar_chart(docUnit_df, x='value', y='count')
+# Loop through the data and store it in the dictionary
+for d in dcs:
+    docUnits['count'].append(d['count'])
+    docUnits['date'].append(d['value'])
+    docUnits['name'].append(d['name'])
+
+
+# Visualise the count per date
+st.bar_chart(docUnits, x='date', y='count')
+
 
